@@ -20,29 +20,29 @@ filters
 DB_PATH = "/data/girlfriend.db" if os.getenv("RENDER") else "girlfriend.db"
 
 def init_db():
-conn = sqlite3.connect(DB_PATH)
-c = conn.cursor()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
 
-c.execute("""
-CREATE TABLE IF NOT EXISTS memory (
-chat_id INTEGER PRIMARY KEY,
-your_name TEXT,
-her_name TEXT,
-mood TEXT
-)
-""")
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS memory (
+            chat_id INTEGER PRIMARY KEY,
+            your_name TEXT,  
+            her_name TEXT,
+            mood TEXT
+    )
+    """)
 
-c.execute("""
-CREATE TABLE IF NOT EXISTS reminders (
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-chat_id INTEGER,
-keyword TEXT,
-message TEXT
-)
-""")
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS reminders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id INTEGER,
+            keyword TEXT,
+            message TEXT
+    )
+    """)
 
-conn.commit()
-conn.close()
+    conn.commit()
+    conn.close()
 
 # -----------------------------
 # Helper Functions
@@ -247,6 +247,7 @@ await app.run_polling()
 if __name__ == "__main__":
 import asyncio
 asyncio.run(main())
+
 
 
 
