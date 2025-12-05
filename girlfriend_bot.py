@@ -81,16 +81,16 @@ conn.commit()
 conn.close()
 
 def get_keyword_reminders(chat_id, msg):
-conn = sqlite3.connect(DB_PATH)
-c = conn.cursor()
-c.execute("SELECT keyword, message FROM reminders WHERE chat_id = ?", (chat_id,))
-rows = c.fetchall()
-conn.close()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT keyword, message FROM reminders WHERE chat_id = ?", (chat_id,))
+    rows = c.fetchall()
+    conn.close()
 
-for kw, msg_response in rows:
-if kw in msg.lower():
-return msg_response
-return None
+    for kw, msg_response in rows:
+        if kw in msg.lower():
+            return msg_response
+    return None
 
 # -----------------------------
 # A. Mood Detection + Emojis
@@ -247,6 +247,7 @@ await app.run_polling()
 if __name__ == "__main__":
 import asyncio
 asyncio.run(main())
+
 
 
 
