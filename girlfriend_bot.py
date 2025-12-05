@@ -48,30 +48,30 @@ def init_db():
 # Helper Functions
 # -----------------------------
 def get_memory(chat_id):
-conn = sqlite3.connect(DB_PATH)
-c = conn.cursor()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
 c.execute("SELECT your_name, her_name, mood FROM memory WHERE chat_id = ?", (chat_id,))
 row = c.fetchone()
 conn.close()
 return row
 
 def save_memory(chat_id, your_name=None, her_name=None, mood=None):
-conn = sqlite3.connect(DB_PATH)
-c = conn.cursor()
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
 
-if get_memory(chat_id) is None:
-c.execute("INSERT INTO memory (chat_id, your_name, her_name, mood) VALUES (?, ?, ?, ?)",
-(chat_id, your_name, her_name, mood))
-else:
-if your_name:
-c.execute("UPDATE memory SET your_name = ? WHERE chat_id = ?", (your_name, chat_id))
-if her_name:
-c.execute("UPDATE memory SET her_name = ? WHERE chat_id = ?", (her_name, chat_id))
-if mood:
-c.execute("UPDATE memory SET mood = ? WHERE chat_id = ?", (mood, chat_id))
+    if get_memory(chat_id) is None:
+        c.execute("INSERT INTO memory (chat_id, your_name, her_name, mood) VALUES (?, ?, ?, ?)",
+                  (chat_id, your_name, her_name, mood))
+    else:
+        if your_name:
+            c.execute("UPDATE memory SET your_name = ? WHERE chat_id = ?", (your_name, chat_id))
+        if her_name:
+            c.execute("UPDATE memory SET her_name = ? WHERE chat_id = ?", (her_name, chat_id))
+        if mood:
+            c.execute("UPDATE memory SET mood = ? WHERE chat_id = ?", (mood, chat_id))
 
-conn.commit()
-conn.close()
+    conn.commit()
+    conn.close()
 
 def add_reminder(chat_id, keyword, message):
 conn = sqlite3.connect(DB_PATH)
@@ -247,6 +247,7 @@ await app.run_polling()
 if __name__ == "__main__":
 import asyncio
 asyncio.run(main())
+
 
 
 
