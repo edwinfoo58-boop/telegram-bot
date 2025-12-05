@@ -97,20 +97,17 @@ def get_keyword_reminders(chat_id, msg):
 # A. Mood Detection + Emojis
 # -----------------------------
 def detect_mood(msg):
-msg = msg.lower()
-
-mood_map = {
-"tired": ["tired", "drained", "exhausted", "sleepy"],
-"sad": ["sad", "depressed", "down", "cry"],
-"angry": ["angry", "pissed", "frustrated", "mad"],
-"happy": ["happy", "excited", "shiok", "yay"]
-}
-
-for mood, keywords in mood_map.items():
-if any(word in msg for word in keywords):
-return mood
-
-return None
+    msg = msg.lower()
+    mood_map = {
+        "tired": ["tired", "drained", "exhausted", "sleepy"],
+        "sad": ["sad", "depressed", "down", "cry"],
+        "angry": ["angry", "pissed", "frustrated", "mad"],
+        "happy": ["happy", "excited", "shiok", "yay"]
+    }
+    for mood, keywords in mood_map.items():
+            if any(word in msg for word in keywords):
+                return mood
+    return None
 
 # -----------------------------
 # B. SG-Style Reply Generator + Emojis
@@ -248,6 +245,7 @@ await app.run_polling()
 if __name__ == "__main__":
 import asyncio
 asyncio.run(main())
+
 
 
 
