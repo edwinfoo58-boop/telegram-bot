@@ -14,10 +14,16 @@ from telegram.ext import (
     filters
 )
 
-# -----------------------------
-# Database
-# -----------------------------
+# -------------------------------------------------------
+# DATABASE SETUP
+# -------------------------------------------------------
+
+# Render container uses /data for persistent storage
 DB_PATH = "/data/girlfriend.db" if os.getenv("RENDER") else "girlfriend.db"
+
+# Ensure /data folder exists on Render
+if os.getenv("RENDER"):
+    os.makedirs("/data", exist_ok=True)
 
 
 def init_db():
@@ -46,9 +52,10 @@ def init_db():
     conn.close()
 
 
-# -----------------------------
-# Helper Functions
-# -----------------------------
+# -------------------------------------------------------
+# MEMORY FUNCTIONS
+# -------------------------------------------------------
+
 def get_memory(chat_id):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -93,17 +100,17 @@ def get_keyword_reminders(chat_id, msg):
     rows = c.fetchall()
     conn.close()
 
-    msg_lower = msg.lower()
-    for kw, msg_response in rows:
-        if kw in msg_lower:
-            return msg_response
-
+    for kw, reply in rows:
+        if kw in msg.lower():
+            return reply
+    
     return None
 
 
-# -----------------------------
-# A. Mood Detection + Emojis
-# -----------------------------
+# -------------------------------------------------------
+# MOOD DETECTION
+# -------------------------------------------------------
+
 def detect_mood(msg):
     msg = msg.lower()
     mood_map = {
@@ -112,15 +119,16 @@ def detect_mood(msg):
         "angry": ["angry", "pissed", "frustrated", "mad"],
         "happy": ["happy", "excited", "shiok", "yay"]
     }
-    for mood, keywords in mood_map.items():
-        if any(word in msg for word in keywords):
+    for mood, words in mood_map.items():
+        if any(word in msg for word in words):
             return mood
     return None
 
 
-# -----------------------------
-# B. SG-Style Reply Generator + Emojis
-# -----------------------------
+# -------------------------------------------------------
+# SG REPLY GENERATOR
+# -------------------------------------------------------
+
 def sg_reply(text, your_name, her_name, mood):
     base = [
         f"Aiyo {your_name}, you so cute one leh 🥺💖",
@@ -130,7 +138,6 @@ def sg_reply(text, your_name, her_name, mood):
         f"You okay anot? I care about you one you know 🥹"
     ]
 
-    # Mood-based reply with emojis
     if mood == "tired":
         base.append(f"{your_name}, you must rest more leh… later fall sick how? 😴💗")
     elif mood == "sad":
@@ -140,87 +147,107 @@ def sg_reply(text, your_name, her_name, mood):
     elif mood == "happy":
         base.append(f"Wah today you so happy ah {your_name}, I like sia 😄✨")
 
-    # Message content triggers
-    text_lower = (text or "").lower()
+    text = text.lower()
 
-    if "love" in text_lower:
+    if "love" in text:
         base.append(f"I love you too lah {your_name} ❤️🥺")
-    if "miss" in text_lower:
+    if "miss" in text:
         base.append(f"I also miss you leh… come closer abit 😳💕")
-    if "photo" in text_lower or "pic" in text_lower:
+    if "photo" in text or "pic" in text:
         base.append(f"Wah you send me photo ah… I feel special sia 📸❤️")
-    if "sleep" in text_lower:
+    if "sleep" in text:
         base.append(f"Go sleep a bit lah dear 😴❤️")
 
     return random.choice(base)
 
 
-# -----------------------------
-# C. Photo Replies + Emojis
-# -----------------------------
+# -------------------------------------------------------
+# PHOTO HANDLER
+# -------------------------------------------------------
+
 async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    mem = get_memory(chat_id) or (None, None, None)
-    your_name = mem[0] or "dear"
+    row = get_memory(chat_id)
+
+    your_name = row[0] if row else "dear"
+
     replies = [
         f"Wah {your_name}, this photo damn nice leh 😳📸",
         f"Aiyo you send me photo ah… I feel so touched sia 🥺💗",
         f"Hehe cute photo, I save inside my heart already ☺️❤️",
     ]
+
     await update.message.reply_text(random.choice(replies))
 
 
-# -----------------------------
-# MAIN Message Handler
-# -----------------------------
+# -------------------------------------------------------
+# TEXT HANDLER
+# -------------------------------------------------------
+
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    msg = (update.message.text or "").strip()
+    msg = update.message.text
 
-    mem = get_memory(chat_id)
-    if mem:
-        your_name, her_name, mood = mem
-    else:
-        your_name = None
-        her_name = None
-        mood = None
+    row = get_memory(chat_id)
+    your_name = row[0] if row else "dear"
+    her_name = row[1] if row else "baby"
+    mood = row[2] if row else None
 
-    # Set her name (user telling the bot how to call itself)
+    # Set HER name
     match_her = re.search(r"call you (.+)", msg.lower())
     if match_her:
-        new_name = match_her.group(1).strip().title()
-        save_memory(chat_id, her_name=new_name)
-        await update.message.reply_text(f"Okay dear~ you can call me {new_name} from now on ❤️")
+        new = match_her.group(1).strip().title()
+        save_memory(chat_id, her_name=new)
+        await update.message.reply_text(f"Okay dear~ you can call me {new} from now on ❤️")
         return
 
-    # Set your name
+    # Set YOUR name
     match_you = re.search(r"call me (.+)", msg.lower())
     if match_you:
-        new_name = match_you.group(1).strip().title()
-        save_memory(chat_id, your_name=new_name)
-        await update.message.reply_text(f"Hehe okay~ I’ll call you {new_name} from now on 💕")
+        new = match_you.group(1).strip().title()
+        save_memory(chat_id, your_name=new)
+        await update.message.reply_text(f"Hehe okay~ I’ll call you {new} from now on 💕")
         return
 
-    # Keyword reminder
-    keyword_message = get_keyword_reminders(chat_id, msg)
-    if keyword_message:
-        await update.message.reply_text(keyword_message)
+    # Keyword auto-reply
+    keyword_reply = get_keyword_reminders(chat_id, msg)
+    if keyword_reply:
+        await update.message.reply_text(keyword_reply)
         return
 
-    # Mood detect
+    # Mood detection
     mood_now = detect_mood(msg)
     if mood_now:
         save_memory(chat_id, mood=mood_now)
 
-    # Generate reply
-    reply = sg_reply(msg, your_name or "dear", her_name or "baby", mood_now or mood)
+    reply = sg_reply(msg, your_name, her_name, mood_now or mood)
     await update.message.reply_text(reply)
 
 
-# -----------------------------
-# Scheduled Messages (runs via job_queue)
-# -----------------------------
-async def scheduled_messages(context: ContextTypes.DEFAULT_TYPE):
+# -------------------------------------------------------
+# START COMMAND
+# -------------------------------------------------------
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    save_memory(chat_id, your_name="dear", her_name="baby", mood="happy")
+
+    await update.message.reply_text(
+        "Hello dear~ 💕\n"
+        "I’m your SG-style girlfriend bot 😳\n"
+        "You can say:\n"
+        "- “call me ___”\n"
+        "- “I am tired / sad / angry / happy”\n"
+        "- Send photos\n\n"
+        "I’ll reply you sweet-sweet one ❤️"
+    )
+
+
+# -------------------------------------------------------
+# SCHEDULED MESSAGES
+# -------------------------------------------------------
+
+async def scheduled_messages(app):
     tz = pytz.timezone("Asia/Singapore")
     now = datetime.datetime.now(tz)
     hour = now.hour
@@ -232,61 +259,33 @@ async def scheduled_messages(context: ContextTypes.DEFAULT_TYPE):
     conn.close()
 
     for chat_id, your_name in rows:
-        name = your_name or "dear"
-        # morning
         if hour == 8:
-            try:
-                await context.bot.send_message(chat_id, f"Good morning {name} ☀️😊 Have a nice day hor~")
-            except Exception:
-                pass
-        # night
+            await app.bot.send_message(chat_id, f"Good morning {your_name} ☀️😊 Have a nice day hor~")
         if hour == 23:
-            try:
-                await context.bot.send_message(chat_id, f"Good night {name} 🌙💤 Rest well okay? ❤️")
-            except Exception:
-                pass
-        # occasional random message
+            await app.bot.send_message(chat_id, f"Good night {your_name} 🌙💤 Rest well okay? ❤️")
+
+        # Random miss-you message
         if random.random() < 0.03:
-            try:
-                await context.bot.send_message(chat_id, f"I miss you a bit leh… 😳💞")
-            except Exception:
-                pass
+            await app.bot.send_message(chat_id, f"I miss you a bit leh… 😳💞")
 
 
-# -----------------------------
-# Start command
-# -----------------------------
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    # ensure there's a memory entry
-    if get_memory(chat_id) is None:
-        save_memory(chat_id, your_name=None, her_name=None, mood=None)
-    await update.message.reply_text(
-        "Hi dear! I'm your GF bot ❤️\nTell me things like 'call me John' or send messages and I'll reply :)"
-    )
-
-
-# -----------------------------
+# -------------------------------------------------------
 # MAIN
-# -----------------------------
+# -------------------------------------------------------
+
 async def main():
     init_db()
 
     BOT_TOKEN = os.getenv("BOT_TOKEN")
-    if not BOT_TOKEN:
-        raise RuntimeError("BOT_TOKEN not set in environment")
-
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
+    # Handlers
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     app.add_handler(MessageHandler(filters.PHOTO, photo_handler))
-    # URLs/entities -> treat as normal text
-    app.add_handler(MessageHandler(filters.Entity("url"), text_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
 
-    # Scheduler every hour
-    # run_repeating takes a callback (async fn) that accepts context
-    app.job_queue.run_repeating(scheduled_messages, interval=3600, first=10)
+    # Scheduled hourly tasks
+    app.job_queue.run_repeating(lambda ctx: scheduled_messages(app), interval=3600, first=10)
 
     print("Girlfriend bot running…")
     await app.run_polling()
